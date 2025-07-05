@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 API_TOKEN = '8088812338:AAEvGsqqJRWUeGO1fDppUBK3uARoCYlAHB8'
 ADMIN_ID = 6855997739
 CHANNEL_USERNAME = '@y_muhammadyusufxon'
-BOT_USERNAME = 'konkurs_m_bot'
+BOT_USERNAME = 'konkurs7m_bot'
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
