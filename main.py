@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 API_TOKEN = '8088812338:AAEvGsqqJRWUeGO1fDppUBK3uARoCYlAHB8'
 ADMIN_ID = 6855997739
 CHANNEL_USERNAME = '@y_muhammadyusufxon'
-BOT_USERNAME = 'konkurs7m_bot'  # <-- bu yerga botingiz username'ini yozing
+BOT_USERNAME = 'konkurs_m_bot'
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
@@ -39,11 +39,25 @@ def save_data():
 
 users, fake_users = load_data()
 
+async def check_subscription(user_id):
+    try:
+        member = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
+        return member.status in ['member', 'creator', 'administrator']
+    except:
+        return False
+
 @dp.message_handler(commands=['start'])
 async def start_cmd(message: types.Message):
     user_id = str(message.from_user.id)
     username = message.from_user.username or "NoUsername"
     args = message.get_args()
+
+    if not await check_subscription(int(user_id)):
+        sub_btn = InlineKeyboardMarkup().add(
+            InlineKeyboardButton("📢 Kanalga obuna bo‘lish", url=f"https://t.me/{CHANNEL_USERNAME.lstrip('@')}")
+        )
+        await message.answer("❗️ Botdan foydalanish uchun kanalga obuna bo‘ling:", reply_markup=sub_btn)
+        return
 
     if user_id not in users:
         users[user_id] = {'username': username, 'ref': None, 'points': 0}
@@ -54,10 +68,17 @@ async def start_cmd(message: types.Message):
                 users[ref_id]['points'] += 10
         save_data()
 
-    kb = InlineKeyboardMarkup().add(
-        InlineKeyboardButton("👥 Do‘st taklif qilish", url=f"https://t.me/{BOT_USERNAME}?start={user_id}")
+    ref_link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
+    text = (
+        "🎉 Salom! Siz “Konkurs M Bot”ga xush kelibsiz!\n\n"
+        "👥 Do‘stlaringizni taklif qiling va har bir do‘st uchun 10 ball oling!\n\n"
+        "🏆 Ballar asosida mukofotlar:\n"
+        "🥇 1-o‘rin – 500 000 so‘m\n"
+        "🥈 2-o‘rin – 300 000 so‘m\n"
+        "🥉 3-o‘rin – 200 000 so‘m\n\n"
+        f"🔗 Sizning referal havolangiz:\n{ref_link}"
     )
-    await message.answer("Konkurs M Botga xush kelibsiz!\nDo‘stlaringizni taklif qilib ball to‘plang!", reply_markup=kb)
+    await message.answer(text)
 
 @dp.message_handler(lambda m: m.text == "🎯 Ballarim")
 async def my_points(message: types.Message):
@@ -89,6 +110,26 @@ async def add_fake(message: types.Message):
         await message.answer(f"{name} sun’iy ishtirokchi sifatida qo‘shildi ({points} ball).")
     except:
         await message.answer("Format: /add_fake Ali | 50")
+
+@dp.message_handler(commands=['edit_fake'])
+async def edit_fake(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    try:
+        parts = message.get_args().split('|')
+        name = parts[0].strip()
+        new_points = int(parts[1].strip())
+
+        for fake in fake_users:
+            if fake['name'] == name:
+                fake['points'] = new_points
+                save_data()
+                await message.answer(f"{name} foydalanuvchining ballari {new_points} ga o‘zgartirildi.")
+                return
+
+        await message.answer(f"{name} ismli sun’iy foydalanuvchi topilmadi.")
+    except:
+        await message.answer("Format: /edit_fake Ali | 70")
 
 @dp.message_handler(commands=['add_user'])
 async def add_user(message: types.Message):
