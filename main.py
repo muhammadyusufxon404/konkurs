@@ -2,9 +2,9 @@ import os
 import json
 import logging
 from aiogram import Bot, Dispatcher, executor, types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-API_TOKEN = '8088812338:AAEvGsqqJRWUeGO1fDppUBK3uARoCYlAHB8'
+API_TOKEN = 'YOUR_BOT_TOKEN_HERE'
 ADMIN_ID = 6855997739
 CHANNEL_USERNAME = '@y_muhammadyusufxon'
 BOT_USERNAME = 'konkurs7m_bot'
@@ -39,15 +39,6 @@ def save_data():
 
 users, fake_users = load_data()
 
-def user_menu():
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add(
-        KeyboardButton("🎯 Ballarim"),
-        KeyboardButton("🔝 Reyting"),
-        KeyboardButton("👥 Referal linkim")
-    )
-    return kb
-
 async def check_subscription(user_id):
     try:
         member = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
@@ -58,7 +49,7 @@ async def check_subscription(user_id):
 @dp.message_handler(commands=['start'])
 async def start_cmd(message: types.Message):
     user_id = str(message.from_user.id)
-    username = message.from_user.username or "NoUsername"
+    name = message.from_user.full_name
     args = message.get_args()
 
     if not await check_subscription(int(user_id)):
@@ -69,12 +60,13 @@ async def start_cmd(message: types.Message):
         return
 
     if user_id not in users:
-        users[user_id] = {'username': username, 'ref': None, 'points': 0}
+        users[user_id] = {'name': name, 'ref': None, 'points': 0}
         if args.isdigit():
             ref_id = str(args)
             if ref_id != user_id and ref_id in users:
                 users[user_id]['ref'] = ref_id
                 users[ref_id]['points'] += 10
+                await bot.send_message(ref_id, f"🎉 Sizning havolangiz orqali {name} qo‘shildi! Sizga 10 ball berildi.")
         save_data()
 
     ref_link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
@@ -87,30 +79,29 @@ async def start_cmd(message: types.Message):
         "🥉 3-o‘rin – 200 000 so‘m\n\n"
         f"🔗 Sizning referal havolangiz:\n{ref_link}"
     )
-    await message.answer(text, reply_markup=user_menu())
+    kb = InlineKeyboardMarkup(row_width=2).add(
+        InlineKeyboardButton("🎯 Ballarim", callback_data="points"),
+        InlineKeyboardButton("🔝 Reyting", callback_data="top")
+    )
+    await message.answer(text, reply_markup=kb)
 
-@dp.message_handler(lambda m: m.text == "🎯 Ballarim")
-async def my_points(message: types.Message):
-    user_id = str(message.from_user.id)
+@dp.callback_query_handler(lambda c: c.data == 'points')
+async def my_points_callback(call: types.CallbackQuery):
+    user_id = str(call.from_user.id)
     points = users.get(user_id, {}).get('points', 0)
-    await message.answer(f"🎯 Sizning ballaringiz: {points}")
+    await call.message.answer(f"Sizning ballaringiz: {points}")
+    await call.answer()
 
-@dp.message_handler(lambda m: m.text == "🔝 Reyting")
-@dp.message_handler(commands=['top'])
-async def top_users(message: types.Message):
-    combined = [{'name': f"@{v['username']}", 'points': v['points']} for v in users.values()]
+@dp.callback_query_handler(lambda c: c.data == 'top')
+async def top_users_callback(call: types.CallbackQuery):
+    combined = [{'name': v['name'], 'points': v['points']} for v in users.values()]
     combined += fake_users
     sorted_users = sorted(combined, key=lambda x: x['points'], reverse=True)[:10]
     text = "🏆 TOP 10 ishtirokchi:\n"
     for i, user in enumerate(sorted_users, 1):
         text += f"{i}. {user['name']} – {user['points']} ball\n"
-    await message.answer(text)
-
-@dp.message_handler(lambda m: m.text == "👥 Referal linkim")
-async def send_ref_link(message: types.Message):
-    user_id = str(message.from_user.id)
-    ref_link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
-    await message.answer(f"🔗 Sizning referal havolangiz:\n{ref_link}")
+    await call.message.answer(text)
+    await call.answer()
 
 @dp.message_handler(commands=['add_fake'])
 async def add_fake(message: types.Message):
@@ -134,13 +125,15 @@ async def edit_fake(message: types.Message):
         parts = message.get_args().split('|')
         name = parts[0].strip()
         new_points = int(parts[1].strip())
+
         for fake in fake_users:
             if fake['name'] == name:
                 fake['points'] = new_points
                 save_data()
-                await message.answer(f"{name} ballari {new_points} ga o‘zgartirildi.")
+                await message.answer(f"{name} foydalanuvchining ballari {new_points} ga o‘zgartirildi.")
                 return
-        await message.answer(f"{name} topilmadi.")
+
+        await message.answer(f"{name} ismli sun’iy foydalanuvchi topilmadi.")
     except:
         await message.answer("Format: /edit_fake Ali | 70")
 
@@ -152,11 +145,11 @@ async def add_user(message: types.Message):
         args = message.get_args().split()
         uid = str(args[0])
         uname = args[1]
-        users[uid] = {'username': uname.replace('@', ''), 'ref': None, 'points': 0}
+        users[uid] = {'name': uname, 'ref': None, 'points': 0}
         save_data()
         await message.answer(f"{uname} bazaga qo‘shildi.")
     except:
-        await message.answer("Format: /add_user 123456789 @username")
+        await message.answer("Format: /add_user 123456789 Ali")
 
 @dp.message_handler(commands=['add_points'])
 async def add_points(message: types.Message):
